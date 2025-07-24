@@ -41,7 +41,6 @@ This project leverages two primary data sources:
 * **Machine Learning:** `scikit-learn` (for predictive modeling)
 * **Data Visualization:** `seaborn`, `matplotlib`
 * **Database:** SQLite (for combined internal data)
-* **Business Intelligence:** Power BI (for potential final dashboards/reporting)
 * **Version Control:** Git / GitHub
 
 ## Repository Structure
