@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project aims to develop a sophisticated, data-driven framework for YAKWETU™ Online Ltd.'s MyMovies.Africa™ platform. The core objective is to understand and leverage the influence of external factors, specifically **weather patterns**, on user content consumption behavior. By analyzing historical viewing and transaction data in conjunction with climate information, we seek to predict periods of high user engagement. These predictive insights are then used to inform the design of a **variable pricing model**, enabling the platform to dynamically adjust content prices based on shifting demand signals and environmental conditions. Ultimately, this initiative is designed to support more personalized user experiences, optimize monetization strategies, and strategically align content pricing and scheduling with forecasted demand patterns.
+This project aims to develop a sophisticated, data-driven framework for YAKWETU™ Online Ltd.'s MyMovies.Africa™ platform. The core objective is to understand and leverage the influence of external factors, specifically weather patterns, on user content consumption behavior. By analyzing historical viewing and transaction data in conjunction with climate information, we seek to predict periods of high user engagement. These predictive insights are then used to inform the design of a variable pricing model, enabling the platform to dynamically adjust content prices based on shifting demand signals and environmental conditions. Ultimately, this initiative is designed to support more personalized user experiences, optimize monetization strategies, and strategically align content pricing and scheduling with forecasted demand patterns.
 
 ## Business Problem / Problem Statement
 
