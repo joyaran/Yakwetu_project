@@ -6,6 +6,7 @@ import pandas as pd
 import joblib
 import os
 from dynamic_pricing import get_price_multiplier, recommend_genres, recommend_purchase_types
+
 # =======================
 # Page Setup
 # =======================
@@ -121,102 +122,121 @@ country = st.sidebar.selectbox(
     }[x]
 )
 
+# --- Demo Mode: Moved above button to control data flow ---
+st.sidebar.header("🔧 Demo Options")
+demo_mode = st.sidebar.checkbox("🎯 Force High Demand (Demo Mode)")
+
+if demo_mode:
+    st.sidebar.info("Using synthetic high-demand data for demo.")
+    # Synthetic high-demand values
+    temp = 30.0
+    rain = 12.0
+    is_rainy = 1
+    weathercode = 500  # Rainy code
+    temp_bin = "hot"
+    lag1_total_views = 3500
+    lag2_total_views = 3400
+    lag7_total_views = 3300
+    rolling_3day_avg = 3450
+    rolling_7day_avg = 3350
+    is_weekend = 1
+else:
+    # Fetch real weather
+    weather = get_weather(country)
+    if not weather:
+        st.error("Country not supported")
+        st.stop()
+
+    temp = weather["temp"]
+    rain = weather["rain"]
+    is_rainy = weather["is_rainy"]
+    weathercode = weather["weathercode"]
+    temp_bin = get_temp_bin(temp)
+
+    # Use default lag values (in production, these would come from DB)
+    lag1_total_views = 1500
+    lag2_total_views = 1480
+    lag7_total_views = 1400
+    rolling_3day_avg = 1490
+    rolling_7day_avg = 1450
+    is_weekend = 1 if datetime.now().weekday() >= 5 else 0
+
+# --- Now, outside the demo mode block, handle the button ---
 if st.button("🌤️ Predict Demand"):
-    with st.spinner("Fetching weather and predicting demand..."):
-        weather = get_weather(country)
-        if not weather:
-            st.error("Country not supported")
-        else:
-            temp = weather["temp"]
-            rain = weather["rain"]
-            is_rainy = weather["is_rainy"]
-            weathercode = weather["weathercode"]
-            temp_bin = get_temp_bin(temp)
+    with st.spinner("Predicting demand..."):
 
-            # Get current date for temporal features
-            now = datetime.now()
-            day_of_week = now.weekday()  # 0=Mon, 6=Sun
-            month = now.month
-            is_weekend = 1 if day_of_week >= 5 else 0
-            is_holiday = 0  
+        now = datetime.now()
+        month = now.month
+        is_holiday = 0  # Placeholder
 
-            # Dummy lag and rolling values (replace with real data in production)
-            lag1_total_views = 1500
-            lag2_total_views = 1480
-            lag7_total_views = 1400
-            rolling_3day_avg = 1490
-            rolling_7day_avg = 1450
+        # One-hot encode temp_bin
+        temp_bin_cold = 1 if temp_bin == "cold" else 0
+        temp_bin_mild = 1 if temp_bin == "mild" else 0
+        temp_bin_hot = 1 if temp_bin == "hot" else 0
 
-            # One-hot encode temp_bin
-            temp_bin_cold = 1 if temp_bin == "cold" else 0
-            temp_bin_mild = 1 if temp_bin == "mild" else 0
-            temp_bin_hot = 1 if temp_bin == "hot" else 0
+        # Create input DataFrame with ALL expected features
+        input_df = pd.DataFrame([{
+            'temperature_2m_max': temp,
+            'precipitation_sum': rain,
+            'is_rainy': is_rainy,
+            'weathercode': weathercode,
+            'temp_bin_cold': temp_bin_cold,
+            'temp_bin_mild': temp_bin_mild,
+            'temp_bin_hot': temp_bin_hot,
+            'lag1_total_views': lag1_total_views,
+            'lag2_total_views': lag2_total_views,
+            'lag7_total_views': lag7_total_views,
+            'rolling_3day_avg': rolling_3day_avg,
+            'rolling_7day_avg': rolling_7day_avg,
+            'day_of_week': now.weekday(),
+            'month': month,
+            'is_weekend': is_weekend,
+            'is_holiday': is_holiday
+        }])
 
-            # Create input DataFrame with ALL expected features
-            input_df = pd.DataFrame([{
-                'temperature_2m_max': temp,
-                'precipitation_sum': rain,
-                'is_rainy': is_rainy,
-                'weathercode': weathercode,
-                'temp_bin_cold': temp_bin_cold,
-                'temp_bin_mild': temp_bin_mild,
-                'temp_bin_hot': temp_bin_hot,
-                'lag1_total_views': lag1_total_views,
-                'lag2_total_views': lag2_total_views,
-                'lag7_total_views': lag7_total_views,
-                'rolling_3day_avg': rolling_3day_avg,
-                'rolling_7day_avg': rolling_7day_avg,
-                'day_of_week': day_of_week,
-                'month': month,
-                'is_weekend': is_weekend,
-                'is_holiday': is_holiday
-            }])
+        # Ensure column order matches exactly what the model expects
+        input_df = input_df[EXPECTED_FEATURES]
 
-            # Ensure column order matches exactly what the model expects
-            input_df = input_df[EXPECTED_FEATURES]
+        try:
+            # Predict
+            pred = model.predict(input_df)[0]
+            proba = model.predict_proba(input_df)[0].max()
 
-            try:
-                # Predict
-                pred = model.predict(input_df)[0]
-                proba = model.predict_proba(input_df)[0].max()
+            # Map numeric prediction back to label
+            labels = ["Low", "Medium", "High"]
+            demand_level = labels[pred]
+            confidence = round(proba, 2)
+            price_mult = get_price_multiplier(demand_level)
+            genres = recommend_genres(is_rainy, temp_bin)
+            purchase_types = recommend_purchase_types(demand_level, is_rainy)
 
-                # Map numeric prediction back to label
-                labels = ["Low", "Medium", "High"]
-                demand_level = labels[pred]
-                confidence = round(proba, 2)
-                price_mult = get_price_multiplier(demand_level)
-                genres = recommend_genres(is_rainy, temp_bin)
+            # Display results
+            col1, col2, col3 = st.columns(3)
+            col1.metric("🌡️ Temp", f"{temp:.1f}°C")
+            col2.metric("💧 Rain", f"{rain:.1f} mm")
+            col3.metric("🎯 Demand", demand_level)
 
-                # Recommend purchase types
-                purchase_types = recommend_purchase_types(demand_level, is_rainy)
+            st.markdown("---")
 
-                # Display results
-                col1, col2, col3 = st.columns(3)
-                col1.metric("🌡️ Temp", f"{temp:.1f}°C")
-                col2.metric("💧 Rain", f"{rain:.1f} mm")
-                col3.metric("🎯 Demand", demand_level)
+            st.subheader("📋 Recommendations")
+            st.write(f"**Confidence**: {confidence}")
+            st.write(f"**Suggested Price Multiplier**: `{price_mult}x`")
+            st.write(f"**Recommended Genres**: `{', '.join(genres)}`")
+            st.write(f"**Recommended Purchase Types**: `{', '.join(purchase_types)}`")
 
-                st.markdown("---")
+            # Save to history
+            result = {
+                "Time": now.strftime("%H:%M"),
+                "Country": country,
+                "Temp": temp,
+                "Rain": rain,
+                "Demand": demand_level,
+                "Genres": ", ".join(genres)
+            }
+            st.session_state.setdefault("history", []).append(result)
 
-                st.subheader("📋 Recommendations")
-                st.write(f"**Confidence**: {confidence}")
-                st.write(f"**Suggested Price Multiplier**: `{price_mult}x`")
-                st.write(f"**Recommended Genres**: `{', '.join(genres)}`")
-                st.write(f"**Recommended Purchase Types**: `{', '.join(purchase_types)}`")
-
-                # Save to history
-                result = {
-                    "Time": now.strftime("%H:%M"),
-                    "Country": country,
-                    "Temp": temp,
-                    "Rain": rain,
-                    "Demand": demand_level,
-                    "Genres": ", ".join(genres)
-                }
-                st.session_state.setdefault("history", []).append(result)
-
-            except Exception as e:
-                st.error(f"Prediction failed: {e}")
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
 
 # =======================
 # Show History
