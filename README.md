@@ -231,7 +231,7 @@ This strategy ensures prices align with real-time demand drivers, maximizing rev
 
 ### 🌐 Deployment & Integration
 
-The final model was deployed to an interactive dashboard:
+The final model was deployed to an interactive dashboard: [Live Project](https://yakwetu-weather-dynamic-project.vercel.app/)
 - **Real-Time Weather Integration:** Pulls current climate conditions and uses them to forecast demand and price dynamically.
 - **7-Day Forecast Table:** Lists predicted weather, temperature, demand classification, and final price.
 - **Hybrid Forecast Visuals:**
