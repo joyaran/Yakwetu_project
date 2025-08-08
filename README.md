@@ -1,6 +1,6 @@
 <div align="center">
   
-# 🌟 YAKWETU™ Climate-Based Variable Pricing Project
+# 🌟 YAKWETU™ Climate-Based Variable Pricing Project 🌟
 
 </div>
 
