@@ -4,24 +4,6 @@
 
 </div>
 
-### 📝 Table of Contents
-- [Project Overview](#project-overview)
-- [Business Problem / Problem Statement](#business-problem--problem-statement)
-- [Project Goals](#project-goals)
-- [Key Features](#key-features)
-- [Data Sources](#data-sources)
-- [Tools & Technologies](#tools--technologies)
-- [Directory Structure](#directory-structure)
-- [Setup & Installation](#setup--installation)
-- [Modeling Process](#modeling-process)
-- [Results & Insights](#results--insights)
-- [Dynamic Pricing Simulation](#dynamic-pricing-simulation)
-- [Deployment & Integration](#deployment--integration)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
 ### Project Overview
 
 This project aims to develop a sophisticated, data-driven framework for YAKWETU™ Online Ltd.'s MyMovies.Africa™ platform. The core objective is to understand and leverage the influence of external factors, specifically weather patterns, on user content consumption behavior. By analyzing historical viewing and transaction data in conjunction with climate information, we seek to predict periods of high user engagement. These predictive insights are then used to inform the design of a variable pricing model, enabling the platform to dynamically adjust content prices based on shifting demand signals and environmental conditions. Ultimately, this initiative is designed to support more personalized user experiences, optimize monetization strategies, and strategically align content pricing and scheduling with forecasted demand patterns.
