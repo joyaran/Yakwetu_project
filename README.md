@@ -95,21 +95,13 @@ Yakwetu_project/
 │   ├── yakwetu_demand_forecast_with_predictions.csv
 │   ├── yakwetu_demand_forecast.csv
 │   └── yakwetu_model.ipynb
-├── PDFs/
-│   └── 150725_Confidential_YAKWETU_Climate-Based_Variable_Pricing_Project.pdf
 ├── SQL_Files/
 │   ├── updates.sql
 │   └── yakwetu_merging.sql
 ├── weather_demand_api/
 │   ├── __pycache__/
-│   ├── dynamic_pricing.py
-│   ├── label_encoder.pkl
-│   ├── main.py
-│   ├── model.py
-│   ├── requirements.txt
-│   └── yakwetu_model.pkl
+│   ├── weather-demand-dashboard
 ├── README.md                       # Project documentation
-└── requirements.txt                # Python dependencies
 ```
 
 ---
