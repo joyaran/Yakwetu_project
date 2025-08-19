@@ -30,3 +30,11 @@ def recommend_genres(is_rainy, temperature_bin):
             return ["Action", "Adventure", "Movies by Women"]
         else:
             return ["Sports", "Reality", "Documentary"]
+
+def recommend_purchase_types(demand_level, is_rainy):
+    if demand_level == "High" and is_rainy:
+        return ["PVOD", "RENTAL", "EST"]
+    elif demand_level == "High":
+        return ["RENTAL", "SVOD"]
+    else:
+        return ["RENTAL", "View"]

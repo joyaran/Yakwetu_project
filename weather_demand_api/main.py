@@ -2,36 +2,45 @@
 import streamlit as st
 import requests
 from datetime import datetime
-
-# Import your modules
-from model import YAKWETUPredictor
-from dynamic_pricing import get_price_multiplier, recommend_genres
+import pandas as pd
+import joblib
+import os
+from dynamic_pricing import get_price_multiplier, recommend_genres, recommend_purchase_types
 
 # =======================
 # Page Setup
 # =======================
-st.set_page_config(page_title="YAKWETU™ Pricing", layout="wide")
-st.title("YAKWETU™ Climate-Based Pricing System")
+st.set_page_config(page_title="🌍 YAKWETU™ Pricing", layout="wide")
+st.title("🌍 YAKWETU™ Climate-Based Pricing System")
 st.markdown("Predict demand • Recommend content • Optimize pricing")
 
 # =======================
 # Load Model
 # =======================
 @st.cache_resource
-def load_predictor():
+def load_model():
+    model_path = 'yakwetu_model.pkl'
+    if not os.path.exists(model_path):
+        st.error("Model file 'yakwetu_model.pkl' not found in 'api/' folder.")
+        st.stop()
     try:
-        return YAKWETUPredictor()
+        model = joblib.load(model_path)
+        st.success("✅ AI Model Loaded!")
+        return model
     except Exception as e:
         st.error(f"Failed to load model: {e}")
         st.stop()
 
-predictor = load_predictor()
-st.success("✅ AI Model Ready!")
+model = load_model()
+
+# Get expected feature names from the model
+EXPECTED_FEATURES = model.feature_names_in_.tolist()
 
 # =======================
 # Weather Helper
 # =======================
 def get_weather(country_code):
+    """Fetch real weather forecast using Open-Meteo API"""
     coords = {
         "KE": (-1.2921, 36.8219),  # Nairobi
         "NG": (6.5244, 3.3792),   # Lagos
@@ -47,28 +56,60 @@ def get_weather(country_code):
     params = {
         "latitude": lat,
         "longitude": lon,
-        "daily": ["temperature_2m_max", "precipitation_sum"],
+        "daily": ["temperature_2m_max", "precipitation_sum", "weathercode"],
         "forecast_days": 1
     }
     try:
-        r = requests.get(url, params=params).json()
-        temp = r['daily']['temperature_2m_max'][0]
-        rain = r['daily']['precipitation_sum'][0]
+        response = requests.get(url, params=params).json()
+        temp = response['daily']['temperature_2m_max'][0]
+        rain = response['daily']['precipitation_sum'][0]
+        weathercode = response['daily']['weathercode'][0]
         is_rainy = 1 if rain > 0 else 0
-        return {"temp": temp, "rain": rain, "is_rainy": is_rainy}
+        return {
+            "temp": temp,
+            "rain": rain,
+            "is_rainy": is_rainy,
+            "weathercode": weathercode
+        }
     except Exception as e:
-        st.warning(f"Weather API error: {e}")
-        return {"temp": 25.0, "rain": 0.0, "is_rainy": 0}
+        st.warning(f"Weather API error: {e}. Using fallback values.")
+        return {
+            "temp": 25.0,
+            "rain": 0.0,
+            "is_rainy": 0,
+            "weathercode": 3
+        }
 
 def get_temp_bin(temp):
-    if temp < 15: return "cold"
-    elif temp < 25: return "mild"
-    else: return "hot"
+    if temp < 15:
+        return "cold"
+    elif temp < 25:
+        return "mild"
+    else:
+        return "hot"
+
+# =======================
+# Business Logic
+# =======================
+def recommend_genres(is_rainy, temp_bin):
+    genre_map = {
+        (1, "cold"): ["Drama", "Romance", "Chick Flick"],
+        (1, "mild"): ["Drama", "Romantic Comedy", "Family"],
+        (1, "hot"): ["Comedy", "Short & Sweet", "Kenyan Favourites"],
+        (0, "cold"): ["Action", "Thriller", "Crime"],
+        (0, "mild"): ["Action", "Adventure", "Movies by Women"],
+        (0, "hot"): ["Sports", "Reality", "Documentary"]
+    }
+    return genre_map.get((is_rainy, temp_bin), ["General"])
+
+def get_price_multiplier(demand_level):
+    multipliers = {"Low": 0.9, "Medium": 1.0, "High": 1.2}
+    return multipliers.get(demand_level, 1.0)
 
 # =======================
 # UI Input
 # =======================
-st.sidebar.header("Select Country")
+st.sidebar.header("📍 Select Country")
 country = st.sidebar.selectbox(
     "Country Code",
     ["KE", "NG", "GH", "ZA", "AE"],
@@ -81,48 +122,126 @@ country = st.sidebar.selectbox(
     }[x]
 )
 
-if st.button("Predict Demand"):
-    with st.spinner("Fetching weather..."):
-        weather = get_weather(country)
-        if not:
-            st.error("Country not supported")
-        else:
-            temp = weather["temp"]
-            rain = weather["rain"]
-            is_rainy = weather["is_rainy"]
-            temp_bin = get_temp_bin(temp)
+# --- Demo Mode: Moved above button to control data flow ---
+st.sidebar.header("🔧 Demo Options")
+demo_mode = st.sidebar.checkbox("🎯 Force High Demand (Demo Mode)")
 
-            # Predict demand
-            demand, conf = predictor.predict_demand(temp, rain, is_rainy, temp_bin)
-            price_mult = get_price_multiplier(demand)
+if demo_mode:
+    st.sidebar.info("Using synthetic high-demand data for demo.")
+    # Synthetic high-demand values
+    temp = 30.0
+    rain = 12.0
+    is_rainy = 1
+    weathercode = 500  # Rainy code
+    temp_bin = "hot"
+    lag1_total_views = 3500
+    lag2_total_views = 3400
+    lag7_total_views = 3300
+    rolling_3day_avg = 3450
+    rolling_7day_avg = 3350
+    is_weekend = 1
+else:
+    # Fetch real weather
+    weather = get_weather(country)
+    if not weather:
+        st.error("Country not supported")
+        st.stop()
+
+    temp = weather["temp"]
+    rain = weather["rain"]
+    is_rainy = weather["is_rainy"]
+    weathercode = weather["weathercode"]
+    temp_bin = get_temp_bin(temp)
+
+    # Use default lag values (in production, these would come from DB)
+    lag1_total_views = 1500
+    lag2_total_views = 1480
+    lag7_total_views = 1400
+    rolling_3day_avg = 1490
+    rolling_7day_avg = 1450
+    is_weekend = 1 if datetime.now().weekday() >= 5 else 0
+
+# --- Now, outside the demo mode block, handle the button ---
+if st.button("🌤️ Predict Demand"):
+    with st.spinner("Predicting demand..."):
+
+        now = datetime.now()
+        month = now.month
+        is_holiday = 0  # Placeholder
+
+        # One-hot encode temp_bin
+        temp_bin_cold = 1 if temp_bin == "cold" else 0
+        temp_bin_mild = 1 if temp_bin == "mild" else 0
+        temp_bin_hot = 1 if temp_bin == "hot" else 0
+
+        # Create input DataFrame with ALL expected features
+        input_df = pd.DataFrame([{
+            'temperature_2m_max': temp,
+            'precipitation_sum': rain,
+            'is_rainy': is_rainy,
+            'weathercode': weathercode,
+            'temp_bin_cold': temp_bin_cold,
+            'temp_bin_mild': temp_bin_mild,
+            'temp_bin_hot': temp_bin_hot,
+            'lag1_total_views': lag1_total_views,
+            'lag2_total_views': lag2_total_views,
+            'lag7_total_views': lag7_total_views,
+            'rolling_3day_avg': rolling_3day_avg,
+            'rolling_7day_avg': rolling_7day_avg,
+            'day_of_week': now.weekday(),
+            'month': month,
+            'is_weekend': is_weekend,
+            'is_holiday': is_holiday
+        }])
+
+        # Ensure column order matches exactly what the model expects
+        input_df = input_df[EXPECTED_FEATURES]
+
+        try:
+            # Predict
+            pred = model.predict(input_df)[0]
+            proba = model.predict_proba(input_df)[0].max()
+
+            # Map numeric prediction back to label
+            labels = ["Low", "Medium", "High"]
+            demand_level = labels[pred]
+            confidence = round(proba, 2)
+            price_mult = get_price_multiplier(demand_level)
             genres = recommend_genres(is_rainy, temp_bin)
+            purchase_types = recommend_purchase_types(demand_level, is_rainy)
 
             # Display results
             col1, col2, col3 = st.columns(3)
-            col1.metric("Temp", f"{temp:.1f}°C")
-            col2.metric("Rain", f"{rain:.1f} mm")
-            col3.metric("Demand", demand)
+            col1.metric("🌡️ Temp", f"{temp:.1f}°C")
+            col2.metric("💧 Rain", f"{rain:.1f} mm")
+            col3.metric("🎯 Demand", demand_level)
 
             st.markdown("---")
 
-            st.subheader("Recommendations")
-            st.write(f"**Confidence**: {conf}")
-            st.write(f"**Price Multiplier**: {price_mult}x")
-            st.write(f"**Recommended Genres**: {', '.join(genres)}")
+            st.subheader("📋 Recommendations")
+            st.write(f"**Confidence**: {confidence}")
+            st.write(f"**Suggested Price Multiplier**: `{price_mult}x`")
+            st.write(f"**Recommended Genres**: `{', '.join(genres)}`")
+            st.write(f"**Recommended Purchase Types**: `{', '.join(purchase_types)}`")
 
             # Save to history
             result = {
-                "Time": datetime.now().strftime("%H:%M"),
+                "Time": now.strftime("%H:%M"),
                 "Country": country,
                 "Temp": temp,
                 "Rain": rain,
-                "Demand": demand,
+                "Demand": demand_level,
                 "Genres": ", ".join(genres)
             }
             st.session_state.setdefault("history", []).append(result)
 
-# Show history
-if "history" in st.session_state:
-    st.sidebar.subheader("Recent Predictions")
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
+
+# =======================
+# Show History
+# =======================
+if "history" in st.session_state and st.session_state.history:
+    st.sidebar.subheader("📜 Recent Predictions")
     for item in st.session_state.history[-5:]:
         st.sidebar.text(f"{item['Country']} → {item['Demand']} ({item['Temp']}°C)")
